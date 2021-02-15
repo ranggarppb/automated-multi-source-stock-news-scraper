@@ -1,3 +1,4 @@
+from collections import defaultdict
 from configparser import ConfigParser
 
 # Function for reading configuration
@@ -20,3 +21,9 @@ def config_reader(config, section):
     for param in params:
         config_dict[param[0]] = param[1]
     return config_dict
+
+def list_duplicates(seq):
+    tally = defaultdict(list)
+    for i,item in enumerate(seq):
+        tally[item].append(i)
+    return list(((key,locs) for key,locs in tally.items() if len(locs)>1))
