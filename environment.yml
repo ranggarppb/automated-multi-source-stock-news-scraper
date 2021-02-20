@@ -42,7 +42,7 @@ dependencies:
   - multidict=4.7.6
   - numpy=1.19.2
   - numpy-base=1.19.2
-  - openssl=1.1.1i
+  - openssl=1.1.1j
   - packaging=20.9
   - pandas=1.2.1
   - pip=20.3.3
@@ -64,6 +64,7 @@ dependencies:
   - rsa=4.7
   - selenium=3.141.0
   - setuptools=52.0.0
+  - simplejson=3.17.2
   - six=1.15.0
   - sqlite=3.33.0
   - toml=0.10.1

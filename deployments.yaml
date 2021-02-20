@@ -1,0 +1,22 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata: 
+  name: stock-news-tracker-scraper
+spec:
+  schedule: 0 */4 * * *
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: stock-news-tracker-scraper
+              image: localhost:5000/stock-news-tracker-scraper
+              args:
+              - conda
+              - run
+              - --no-capture-output
+              - -n
+              - stock-news-tracker
+              - python
+              - news_scraper.py
+          restartPolicy: Never

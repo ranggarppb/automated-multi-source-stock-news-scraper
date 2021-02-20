@@ -3,7 +3,9 @@ import pickle
 import collections
 import os
 import sys
-import jsonlines
+import json
+import ast
+# import jsonlines
 from datetime import datetime
 from time import sleep
 from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, TimeoutException, StaleElementReferenceException, WebDriverException
@@ -14,21 +16,21 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.keys import Keys
 from google.cloud import storage
-from utils import list_duplicates
+from utils import list_duplicates, grab_json
 import global_var
 from global_var import DRIVER_PATH, GOOGLE_STORAGE_CONFIG, LIST_STOCKS, NEWS_SOURCES, SOURCES_TO_CONFIG_MAPPINGS, NUMBER_OF_NEWS, NEWS_DB_TMP
 
-def get_listed_links(news_db_today, focused_item) :
-    if len(news_db_today) != 0 :
-        links_per_scheduled_hours = [list(news.items())[0][1] for news in news_db_today]
-        links_per_source_today_dict = [x[focused_item][source] for x in links_per_scheduled_hours]
-        links_per_source_today = []
-        for links_dict in links_per_source_today_dict :
-            links_per_source_today += list(links_dict.keys())
+def get_listed_links(news_db, focused_item, source) :
+    if len(news_db) != 0 :
+        links_per_scheduled_hours = [list(news.items())[0][1] for news in news_db]
+        links_per_source_dict = [x[focused_item][source] for x in links_per_scheduled_hours]
+        links_per_source = []
+        for links_dict in links_per_source_dict :
+            links_per_source += list(links_dict.keys())
     else :
-        links_per_source_today = []
+        links_per_source = []
 
-    return links_per_source_today
+    return links_per_source
 
 def map_source_to_config(source) :
 
@@ -176,16 +178,24 @@ if __name__ == '__main__':
     options.add_argument('--no-sandbox')
     options.add_argument('--ignore-certificate-errors')
 
-    storage_client = storage.Client.from_service_account_json(GOOGLE_STORAGE_CONFIG["SERVICE_ACCOUT_CREDENTIAL"])
+    storage_client = storage.Client.from_service_account_json(GOOGLE_STORAGE_CONFIG["SERVICE_ACCOUNT_CREDENTIAL"])
     bucket = storage_client.get_bucket(GOOGLE_STORAGE_CONFIG["STORAGE_BUCKET"])
     blob = bucket.get_blob(GOOGLE_STORAGE_CONFIG["DATA_FILE"])
-    blob.download_to_filename(NEWS_DB_TMP)
+    # blob.download_to_filename(NEWS_DB_TMP)
 
     current_datetime = datetime.today().strftime('%Y-%m-%d %H')
 
-    with jsonlines.open(NEWS_DB_TMP) as database_input:
-        news_db = list(database_input)
+    with open(NEWS_DB_TMP) as f :
+        database_input = f.read()
 
+    news_db = []
+    while True :
+        obj, remaining = grab_json(database_input)
+        news_db.append(obj)
+        database_input = remaining
+        if not remaining.strip():
+            break
+    
     news_data = {}
     news_sources = NEWS_SOURCES
 
@@ -193,19 +203,24 @@ if __name__ == '__main__':
         news_per_stock = {}
         for source in news_sources :
             config = map_source_to_config(source)
-            links_per_source_today = get_listed_links(news_db, stock)
-            news_per_source = search_from_certain_source(options, config, links_per_source_today, stock=stock, mode="per_stock")
+            links_per_source = get_listed_links(news_db, stock, source)
+            news_per_source = search_from_certain_source(options, config, links_per_source, stock=stock, mode="per_stock")
             news_per_stock.update({source:news_per_source})
         news_data.update({stock:news_per_stock})
     
     news_overall = {}
     for source in news_sources :
         config = map_source_to_config(source)
-        links_per_source_today = get_listed_links(news_db, "OVERALL")
-        news_overall_per_source = search_from_certain_source(options, config, links_per_source_today, mode="overall")
+        links_per_source = get_listed_links(news_db, "OVERALL", source)
+        news_overall_per_source = search_from_certain_source(options, config, links_per_source, mode="overall")
         news_overall.update({source:news_overall_per_source})
     news_data.update({"OVERALL":news_overall})
 
-    with jsonlines.open(NEWS_DB_TMP, mode='a') as database_output:
-        database_output.write({current_datetime:news_data})
+    news_for_upload = {current_datetime:news_data}
+    news_for_upload = json.dumps(news_for_upload, indent=2).encode('utf-8')
+    with open(NEWS_DB_TMP, mode='ab') as database_output :
+        database_output.write(news_for_upload)
+        database_output.write(b"\n")
+        database_output.flush()
+        
     blob.upload_from_filename(NEWS_DB_TMP)

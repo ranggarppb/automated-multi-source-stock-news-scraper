@@ -1,9 +1,5 @@
 FROM continuumio/miniconda3
 
-# Updating apt to see and install Google Chrome
-# RUN apt-get -y update
-# RUN apt-get install -y google-chrome-stable
-# Essential tools and xvfb
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     unzip \
@@ -32,31 +28,16 @@ RUN dpkg-divert --add --rename --divert /opt/google/chrome/google-chrome.real /o
 
 # Chrome Driver
 RUN mkdir -p /opt/selenium \
-    && curl http://chromedriver.storage.googleapis.com/2.45/chromedriver_linux64.zip -o /opt/selenium/chromedriver_linux64.zip \
+    && curl http://chromedriver.storage.googleapis.com/2.41/chromedriver_linux64.zip -o /opt/selenium/chromedriver_linux64.zip \
     && cd /opt/selenium; unzip /opt/selenium/chromedriver_linux64.zip; rm -rf chromedriver_linux64.zip; ln -fs /opt/selenium/chromedriver /usr/local/bin/chromedriver;
-
-# Installing Unzip
-# RUN apt-get install -yqq unzip
-
-# Download the Chrome Driver
-# RUN wget -O /tmp/chromedriver.zip http://chromedriver.storage.googleapis.com/`
-# curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE
-# `/chromedriver_linux64.zip
-
-# # Unzip the Chrome Driver into /usr/local/bin directory
-# RUN unzip /tmp/chromedriver.zip chromedriver -d /usr/local/bin/
-
-# # Set display port as an environment variable
-# ENV DISPLAY=:99
 
 COPY . /app
 COPY environment.yml /tmp/environment.yml
 WORKDIR /app
 
-# RUN pip install --upgrade pip
-
-# RUN pip install -r /tmp/requirements.txt
 RUN conda env create -f environment.yml
 SHELL ["conda", "run", "-n", "stock-news-tracker", "/bin/bash", "-c"]
+
+ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "stock-news-tracker", "python", "news_scraper.py"]
 
 
